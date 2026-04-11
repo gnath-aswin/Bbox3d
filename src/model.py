@@ -47,7 +47,7 @@ class PointNetBBox(nn.Module):
         return center, size, yaw
     
 
-    def bbox_loss(pred, target):
+    def bbox_loss(self, pred, target):
         pred_center, pred_size, pred_yaw = pred
         gt_center, gt_size, gt_yaw = target
 

@@ -15,4 +15,8 @@ wheels/
 # Linter
 .ruff_cache/
 
-# 
+# Logger
+mlruns/
+
+# Outputs
+outputs/

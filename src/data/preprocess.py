@@ -115,7 +115,7 @@ def extract_objects(sample):
 
     return objects
 
-
+# Centering, Scale, Point count 
 def preprocess_object(obj, num_points=5120):
     points = obj["points"]
 
@@ -145,5 +145,16 @@ def preprocess_object(obj, num_points=5120):
         "points": points,
         "center": center,
         "size": size,
-        "yaw": yaw
+        "yaw": yaw,
+        "pc_center": pc_center,
+        "scale": scale
     }
+
+def denormalize_prediction(pred_center, pred_size, obj):
+    pc_center = obj["pc_center"]
+    scale = obj["scale"]
+
+    center = pred_center * scale + pc_center
+    size = pred_size * scale
+
+    return center, size
