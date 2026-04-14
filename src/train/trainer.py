@@ -14,6 +14,7 @@ class Trainer:
         self.logger = logger
         self.device = device
         self.trial = trial
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', patience=5, factor=0.5)
 
         self.best_loss = float("inf")
         self.last_loss = None
@@ -86,6 +87,7 @@ class Trainer:
                         raise optuna.exceptions.TrialPruned()
 
                 if val_loss is not None:
+                    self.scheduler.step(val_loss)
                     print(
                         f"Epoch {epoch}: "
                         f"Train={train_losses['total']:.4f} "
