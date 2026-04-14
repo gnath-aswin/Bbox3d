@@ -3,7 +3,7 @@ data:
 
 training:
   batch_size: 32
-  epochs: 10
+  epochs: 100
   lr: 1e-3
 
 tune_objective:
@@ -11,7 +11,7 @@ tune_objective:
     w_iou: 2.0
 
 tuning:
-  n_trials: 5
+  n_trials: 50
 
 search_space:
   w_center:
@@ -32,7 +32,7 @@ search_space:
   w_diou: 
     type: float
     low: 1.0
-    high: 5 .0
+    high: 5.0
 
   lr:
     type: float

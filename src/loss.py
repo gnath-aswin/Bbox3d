@@ -17,11 +17,14 @@ class BBoxLoss(nn.Module):
         loss_center = F.mse_loss(pred_center, gt_center)
         loss_size = F.mse_loss(torch.log(pred_size + 1e-6), torch.log(gt_size + 1e-6))
 
-        # Symmetry
-        loss_yaw = (
-            F.mse_loss(torch.sin(pred_yaw), torch.sin(gt_yaw)) +
-            F.mse_loss(torch.cos(pred_yaw), torch.cos(gt_yaw))
-        )
+        # # Symmetry
+        # loss_yaw = (
+        #     F.mse_loss(torch.sin(pred_yaw), torch.sin(gt_yaw)) +
+        #     F.mse_loss(torch.cos(pred_yaw), torch.cos(gt_yaw))
+        # )
+
+        loss_yaw = 1 - torch.cos(pred_yaw - gt_yaw)
+        loss_yaw = loss_yaw.mean()  
 
         # DIoU loss
         diou = self.compute_diou_3d(pred_center, pred_size, gt_center, gt_size)
