@@ -1,10 +1,11 @@
 import torch
 import os
+import optuna 
 from src.loss import BBoxLoss
 from src.metrics.iou3d import compute_iou_3d
 
 class Trainer:
-    def __init__(self, model, optimizer, train_loader, loss_fn=None, logger=None, device="cpu", val_loader=None):
+    def __init__(self, model, optimizer, train_loader, loss_fn=None, logger=None, device="cpu", val_loader=None, trial=None):
         self.model = model
         self.loss_fn = loss_fn if loss_fn is not None else BBoxLoss()
         self.optimizer = optimizer
@@ -12,6 +13,7 @@ class Trainer:
         self.val_loader = val_loader
         self.logger = logger
         self.device = device
+        self.trial = trial
 
         self.best_loss = float("inf")
         self.last_loss = None
@@ -24,6 +26,7 @@ class Trainer:
         total_center = 0
         total_size = 0
         total_yaw = 0
+        total_diou = 0
 
         for batch in self.loader:
             points = batch["points"].to(self.device)
@@ -42,13 +45,15 @@ class Trainer:
             total_loss += loss_dict["total"].item()
             total_center += loss_dict["center"].item()
             total_size += loss_dict["size"].item()
-            total_yaw += loss_dict["yaw"].item()    
+            total_yaw += loss_dict["yaw"].item()
+            total_diou += loss_dict["diou"].item()    
 
         return {
             "total": total_loss / len(self.loader),
             "center": total_center / len(self.loader),
             "size": total_size / len(self.loader),
             "yaw": total_yaw / len(self.loader),
+            "diou": total_diou / len(self.loader)
         }
 
     def train(self, epochs):
@@ -72,6 +77,13 @@ class Trainer:
                 
                 if val_loss is not None and val_loss < self.best_loss:
                     self.best_loss = val_loss
+                
+                # Prune the hyperparameter study
+                if self.trial is not None:
+                    val_score = val_loss - 2.0 * val_iou
+                    self.trial.report(val_score, step=epoch)
+                    if self.trial.should_prune():
+                        raise optuna.exceptions.TrialPruned()
 
                 if val_loss is not None:
                     print(
@@ -79,7 +91,8 @@ class Trainer:
                         f"Train={train_losses['total']:.4f} "
                         f"(C={train_losses['center']:.3f}, "
                         f"S={train_losses['size']:.3f}, "
-                        f"Y={train_losses['yaw']:.3f}) "
+                        f"Y={train_losses['yaw']:.3f}),"
+                        f"DIoU={train_losses["diou"]:.3f}) "
                         f"| Val={val_loss:.4f}, IoU={val_iou:.4f}"
                     )
                 else:

@@ -41,7 +41,7 @@ def build_loaders(train_dataset, val_dataset, batch_size, num_workers=2):
     return train_loader, val_loader
 
 # Build Trainer 
-def build_trainer(params, train_loader, val_loader, trial_number):
+def build_trainer(params, train_loader, val_loader, trial_number, trial):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     model = PointNetBBox().to(device)
@@ -64,7 +64,8 @@ def build_trainer(params, train_loader, val_loader, trial_number):
         logger=logger,
         device=device,
         val_loader=val_loader,
-        loss_fn=loss_fn
+        loss_fn=loss_fn,
+        trial=trial
     )
 
     return trainer
@@ -95,11 +96,16 @@ def objective(trial, config, train_dataset, val_dataset, experiment_id):
             params,
             train_loader,
             val_loader,
-            trial.number
+            trial.number,
+            trial
         )
 
-        # Train
-        trainer.train(epochs=config["training"]["epochs"])
+        # Train           
+        try:
+            trainer.train(epochs=config["training"]["epochs"])
+        except optuna.exceptions.TrialPruned:
+            mlflow.log_param("pruned", True)
+            raise
 
         # Validate
         val_loss, val_iou = trainer.validate()
@@ -138,7 +144,14 @@ def main():
     val_dataset   = build_dataset(val_scene)
 
     with mlflow.start_run(run_name="Tune test"):
-        study = optuna.create_study(direction="minimize")
+        study = optuna.create_study(
+                direction="minimize",
+                pruner=optuna.pruners.MedianPruner(
+                    n_startup_trials=5,
+                    n_warmup_steps=3,
+                    interval_steps=1
+                )
+            )
         study.optimize(
             lambda trial: objective(
                 trial,
