@@ -1,3 +1,4 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -61,6 +62,22 @@ class Visualizer:
         z = (z - self.z_min) / (self.z_max - self.z_min + 1e-6)
         return np.clip(z, 0, 1)
 
+    def _draw_box(self, box, ax, color='r'):
+        box = np.asarray(box)
+        if box.shape != (8, 3):
+            raise ValueError(f"Box must be (8,3), got {box.shape}")
+        
+        u, v = self._project(box)
+        u, v = self._normalize_uv(u, v)
+
+        edges = [
+            (0,1),(1,2),(2,3),(3,0),
+            (4,5),(5,6),(6,7),(7,4),
+            (0,4),(1,5),(2,6),(3,7)
+        ]
+
+        for i, j in edges:
+            ax.plot([u[i], u[j]], [v[i], v[j]], color=color, linewidth=2)
 
     # Visualization - Scene level
     def show(self, show_pc=True, show_boxes=True, show_mask=False, mask_idx=0, box_color="r", ax=None):
@@ -163,3 +180,68 @@ class Visualizer:
 
         ax.set_title(title)
         ax.axis("off")
+
+    # Predicted vs GT bbox
+    def show_scene_predictions(
+        self,
+        gt_boxes=None,
+        pred_boxes=None,
+        show_pc=False,
+        show_mask=False,
+        show=False,
+        save_path=None,
+        ax=None
+    ):
+        """
+        Visualize full scene with GT and predicted boxes
+        """
+
+        if ax is None:
+            plt.figure(figsize=(8, 6))
+            ax = plt.gca()
+
+        ax.imshow(self.img)
+
+        # Optional mask
+        if show_mask:
+            ax.imshow(self.mask[0], alpha=0.3, cmap="jet")
+
+        # Point cloud
+        if show_pc:
+            u, v = self._normalize_uv(self.u_all, self.v_all)
+            z_norm = self._normalize_z(self.z_all)
+
+            sc = ax.scatter(
+                u, v,
+                c=z_norm,
+                cmap="jet",
+                alpha=0.2
+            )
+            plt.colorbar(sc, ax=ax, label="Depth")
+
+        # GT
+        if gt_boxes is not None:
+            for box in gt_boxes:
+                self._draw_box(box, ax, color='g')
+
+        # Prediction
+        if pred_boxes is not None:
+            for box in pred_boxes:
+                self._draw_box(box, ax, color='r')
+
+        # Legend 
+        ax.plot([], [], color='g', label='GT')
+        ax.plot([], [], color='r', label='Prediction')
+        ax.legend()
+
+        ax.set_title("Scene: GT vs Prediction")
+        ax.axis("off")
+        
+        if save_path is not None:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            plt.savefig(save_path, bbox_inches='tight', dpi=150)
+
+        if show:
+            plt.show()
+
+        plt.close()

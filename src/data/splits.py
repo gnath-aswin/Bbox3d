@@ -21,7 +21,7 @@ def save_split(train, val, test, path="data/splits.npz"):
     )
 
 
-def load_split(dataset, path="data/splits.npz"):
+def load_split(dataset, path="../data/splits.npz"):
     data = np.load(path)
 
     train = Subset(dataset, data["train_idx"])

@@ -34,19 +34,19 @@ class PointNetBBox(nn.Module):
         # Apply MLP per point
         x = self.mlp1(x)   # (B, N, 256)
 
-        # Symmetric function (key idea of PointNet)
+        # Symmetric function 
         x = torch.max(x, dim=1)[0]   # (B, 256)
 
         # Final prediction
         x = self.fc(x)   # (B, 7)
 
         center = x[:, 0:3]
-        size = x[:, 3:6]
+        size = torch.exp(x[:, 3:6]) # Ensures strictly positive dimensions
         yaw = x[:, 6]
 
         return center, size, yaw
     
-
+    # // Better configurable loss needed
     def bbox_loss(self, pred, target):
         pred_center, pred_size, pred_yaw = pred
         gt_center, gt_size, gt_yaw = target

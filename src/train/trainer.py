@@ -1,10 +1,12 @@
 import torch
 import os
+from src.loss import BBoxLoss
 from src.metrics.iou3d import compute_iou_3d
 
 class Trainer:
-    def __init__(self, model, optimizer, train_loader, logger=None, device="cpu", val_loader=None):
+    def __init__(self, model, optimizer, train_loader, loss_fn=None, logger=None, device="cpu", val_loader=None):
         self.model = model
+        self.loss_fn = loss_fn if loss_fn is not None else BBoxLoss()
         self.optimizer = optimizer
         self.loader = train_loader
         self.val_loader = val_loader
@@ -17,7 +19,11 @@ class Trainer:
 
     def train_one_epoch(self):
         self.model.train()
+    
         total_loss = 0
+        total_center = 0
+        total_size = 0
+        total_yaw = 0
 
         for batch in self.loader:
             points = batch["points"].to(self.device)
@@ -26,41 +32,70 @@ class Trainer:
             yaw = batch["yaw"].to(self.device)
 
             pred = self.model(points)
-            loss = self.model.bbox_loss(pred, (center, size, yaw))
-
+            loss_dict = self.loss_fn(pred, (center, size, yaw))
+            loss = loss_dict["total"] 
+        
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            total_loss += loss.item()
+            total_loss += loss_dict["total"].item()
+            total_center += loss_dict["center"].item()
+            total_size += loss_dict["size"].item()
+            total_yaw += loss_dict["yaw"].item()    
 
-        avg_loss = total_loss / len(self.loader)
-        self.last_loss = avg_loss
-
-        return avg_loss
+        return {
+            "total": total_loss / len(self.loader),
+            "center": total_center / len(self.loader),
+            "size": total_size / len(self.loader),
+            "yaw": total_yaw / len(self.loader),
+        }
 
     def train(self, epochs):
         if self.logger:
             self.logger.start()
 
+            self.logger.log_params({
+                "batch_size": self.loader.batch_size,
+                "learning_rate": self.optimizer.param_groups[0]["lr"],
+                "model": self.model.__class__.__name__,
+                })
         try:
             for epoch in range(epochs):
-                avg_loss = self.train_one_epoch()
+                train_losses = self.train_one_epoch()
 
                 # Validation
                 if self.val_loader is not None:
                     val_loss, val_iou = self.validate()
                 else:
                     val_loss, val_iou = None, None
+                
+                if val_loss is not None and val_loss < self.best_loss:
+                    self.best_loss = val_loss
 
                 if val_loss is not None:
-                    print(f"Epoch {epoch}: Train={avg_loss:.4f}, Val={val_loss:.4f}, IoU={val_iou:.4f}")
+                    print(
+                        f"Epoch {epoch}: "
+                        f"Train={train_losses['total']:.4f} "
+                        f"(C={train_losses['center']:.3f}, "
+                        f"S={train_losses['size']:.3f}, "
+                        f"Y={train_losses['yaw']:.3f}) "
+                        f"| Val={val_loss:.4f}, IoU={val_iou:.4f}"
+                    )
                 else:
-                    print(f"Epoch {epoch}: Train={avg_loss:.4f}")
+                    print(
+                        f"Epoch {epoch}: "
+                        f"Train={train_losses['total']:.4f}"
+                    )
 
                 # Log metrics
                 if self.logger:
-                    metrics = {"train_loss": avg_loss}
+                    metrics = {
+                        "train_loss": train_losses["total"],
+                        "train_center": train_losses["center"],
+                        "train_size": train_losses["size"],
+                        "train_yaw": train_losses["yaw"],
+                    }
                     if val_loss is not None:
                         metrics["val_loss"] = val_loss
                         metrics["val_iou"] = val_iou
@@ -71,7 +106,7 @@ class Trainer:
                 if val_loss is not None:
                     if val_iou > self.best_iou:
                         self.best_iou = val_iou
-                        path = self.save_checkpoint("outputs/best_model.pth", epoch, val_loss)
+                        path = self.save_checkpoint("outputs/models/best_model.pth", epoch, val_loss)
 
                         if self.logger:
                             self.logger.log_artifact(path)
@@ -97,7 +132,8 @@ class Trainer:
                 yaw = batch["yaw"].to(self.device)
 
                 pred = self.model(points)
-                loss = self.model.bbox_loss(pred, (center, size, yaw))
+                loss_dict = self.loss_fn(pred, (center, size, yaw))
+                loss = loss_dict["total"]
 
                 total_loss += loss.item()
 

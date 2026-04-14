@@ -6,10 +6,9 @@ class MLflowLogger(BaseLogger):
         mlflow.set_experiment(experiment_name)
 
     def start(self):
-        if mlflow.active_run() is not None:
-            mlflow.end_run()
-        self.run = mlflow.start_run()
-
+        if mlflow.active_run() is None:
+            self.run = mlflow.start_run()
+       
     def end(self):
         mlflow.end_run()
 

@@ -1,0 +1,47 @@
+data:
+  path: "/media/void/Crucial X8/dl_challenge/dl_challenge"
+
+training:
+  batch_size: 32
+  epochs: 10
+  lr: 1e-3
+
+tune_objective:
+    w_loss: 1.0
+    w_iou: 2.0
+
+tuning:
+  n_trials: 5
+
+search_space:
+  w_center:
+    type: float
+    low: 1.0
+    high: 3.0
+
+  w_size:
+    type: float
+    low: 0.5
+    high: 3.0
+
+  w_yaw:
+    type: float
+    low: 0.1
+    high: 2.0
+
+  w_diou: 
+    type: float
+    low: 1.0
+    high: 5 .0
+
+  lr:
+    type: float
+    low: 1e-5
+    high: 1e-3
+    log: true
+
+  batch_size:
+    type: categorical
+    choices: [16, 32, 64]
+
+  
