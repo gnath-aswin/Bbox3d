@@ -1,5 +1,5 @@
 # 3D Bounding Box Prediction
-![Python](https://img.shields.io/badge/python-3.13%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-2.x-orange)
 ![3D Vision](https://img.shields.io/badge/Task-3D%20Vision-red)
 ![Model](https://img.shields.io/badge/Model-PointNet-yellow)
@@ -9,10 +9,16 @@
 ![Status](https://img.shields.io/badge/status-active-success)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
+## Demo
+
+![Demo](outputs/vis/3d_vis_.gif)
+
+ 
 ## Usage
 ### Quick Start
 
 ```bash
+uv sync
 uv run train --data_path "/path/to/dataset"
 ```
 ### Training
@@ -64,14 +70,14 @@ uv run test \
 ```
 
 ## 1. Overview
-This project implements an end-to-end deep learning pipeline for **3D bounding box prediction** from point cloud data.
 
-Current focus:
-- Object-level point cloud processing
-- PointNet-based regression model
-- Training + validation pipeline
-- Hyperparameter tuning integration (Optuna + MLflow)
+This project builds an end-to-end pipeline for **3D bounding box prediction from point cloud data**, focusing on accurate **scale and orientation estimation**.
 
+Key highlights:
+- PointNet-based model for object-level 3D regression  
+- Strong improvements in **geometry understanding (size + yaw)**  
+- ~**0.60 IoU** achieved through loss design and training optimization  
+- ONNX inference with ~**2× speedup**  
 ---
 ## 2. Project Pipeline
 
@@ -301,7 +307,7 @@ A custom visualization module was implemented for qualitative analysis and debug
   - Point cloud  
   - Instance masks  
   - Ground truth bounding boxes  
-  - Predicted bounding boxes  
+  - Predicted bounding boxes 
 
 ---
 
@@ -313,7 +319,7 @@ To deploy and improve inference performance , the trained PyTorch model was expo
 ### Benchmark Setup
 
 ```bash
-python scripts/benchmark_compare.py \
+python scripts/benchmark/benchmark_compare.py \
     --onnx deployment/model.onnx \
     --model "/path/to/model"
 ```
@@ -352,7 +358,7 @@ The model was exported to ONNX and benchmarked using ONNX Runtime (CPU).
 │   ├── export_onnx.py
 │   └── benchmark_*.py
 ├── configs/            # Hyperparameters & tuning configs
-├── notebooks/          # Experimentation workflow
+├── notebooks/          # Workflow experimentation
 ├── outputs/            # Models, plots, visualizations
 ├── deployment/         # ONNX model
 ├── data/               # Sample dataset

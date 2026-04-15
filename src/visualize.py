@@ -225,6 +225,7 @@ class Visualizer:
             plt.savefig(save_path, bbox_inches="tight", dpi=150)
 
         if show:
-            plt.show()
+            # plt.show()
+            plt.show(block=False)
 
-        plt.close()
+        # plt.close()
