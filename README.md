@@ -305,6 +305,26 @@ A custom visualization module was implemented for qualitative analysis and debug
 
 ---
 
+## 9. Inference Optimization
+To deploy and improve inference performance , the trained PyTorch model was exported to **ONNX** and benchmarked.
+
+---
+
+### Benchmark Setup
+
+```bash
+python scripts/benchmark_compare.py \
+    --onnx deployment/model.onnx \
+    --model "/path/to/model"
+```
+### Results
+The model was exported to ONNX and benchmarked using ONNX Runtime (CPU).
+
+| Framework | Inference Time | FPS   |
+|----------|---------------|-------|
+| PyTorch  | 4.961 ms      | ~201  |
+| ONNX     | 2.517 ms      | ~397  |
+
 ## Future Work
 
 - Extend to **multi-object detection** (scene-level)  
@@ -314,7 +334,28 @@ A custom visualization module was implemented for qualitative analysis and debug
 - Refine loss design for improved IoU alignment  
 - Enable **real-time inference** with TensorRT  
 
+## Project Structure
 
+```text
+.
+├── src/                
+│   ├── model.py
+│   ├── loss.py
+│   ├── data/           # Dataset + preprocessing
+│   ├── train/          # Training logic
+│   ├── metrics/        # Evaluation 
+│   └── utils/
+├── scripts/            # Training / evaluation / export
+│   ├── train.py
+│   ├── test.py
+│   ├── tune.py
+│   ├── export_onnx.py
+│   └── benchmark_*.py
+├── configs/            # Hyperparameters & tuning configs
+├── notebooks/          # Experimentation workflow
+├── outputs/            # Models, plots, visualizations
+├── deployment/         # ONNX model
+├── data/               # Sample dataset
+└── README.md
 
-
-
+```

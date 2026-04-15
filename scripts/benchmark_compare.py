@@ -84,7 +84,7 @@ def compare_outputs(torch_out, onnx_out):
 def main(args):
     device = "cuda" if args.device == "cuda" and torch.cuda.is_available() else "cpu"
 
-    print(f"🚀 Device: {device}")
+    print(f"Device: {device}")
 
     # Load models
     torch_model = load_pytorch(args.model, device)
@@ -95,24 +95,24 @@ def main(args):
     dummy_np = dummy_torch.cpu().numpy().astype(np.float32)
 
     # Benchmark
-    print("\n⚡ Benchmarking PyTorch...")
+    print("\n Benchmarking PyTorch...")
     torch_time, torch_out = benchmark_torch(torch_model, dummy_torch, device, args.runs)
 
-    print("⚡ Benchmarking ONNX...")
+    print("Benchmarking ONNX...")
     onnx_time, onnx_out = benchmark_onnx(onnx_session, dummy_np, args.runs)
 
     # Compare outputs
-    print("\n🎯 Comparing outputs...")
+    print("\nComparing outputs...")
     errors = compare_outputs(torch_out, onnx_out)
 
     # Print results
-    print("\n📊 RESULTS")
+    print(" RESULTS")
     print("-" * 40)
     print(f"PyTorch Time: {torch_time:.3f} ms")
     print(f"ONNX Time:    {onnx_time:.3f} ms")
     print(f"Speedup:      {torch_time / onnx_time:.2f}x")
 
-    print("\n🔍 Numerical Differences:")
+    print("\nNumerical Differences:")
     for k, v in errors.items():
         print(f"\n{k}:")
         print(f"  mean_abs: {v['mean_abs']:.6f}")
