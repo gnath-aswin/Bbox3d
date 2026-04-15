@@ -1,4 +1,4 @@
-# 3D Bounding Box Prediction (PointNet-based)
+# 3D Bounding Box Prediction
 
 This project implements an end-to-end deep learning pipeline for **3D bounding box prediction** from point cloud data.
 
@@ -62,4 +62,5 @@ uv run test \
 ```markdown
 ### Example Predictions
 
-![Example](/home/void/3d_boundingbox_prediction/outputs/vis/scene_1.png)
+![Image](outputs/vis/scene_1.png)
+```
