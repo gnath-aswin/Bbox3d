@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def get_aabb(center, size):
     min_corner = center - size / 2
     max_corner = center + size / 2

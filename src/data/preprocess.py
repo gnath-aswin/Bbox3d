@@ -1,39 +1,43 @@
 import numpy as np
+import numpy.typing as npt
+from typing import Any
+
+Array = npt.NDArray[np.float64]
 
 
-def param_to_box(center, size, yaw):
-    l, w, h = size
+def param_to_box(center: Array, size: Array, yaw: float) -> Array:
+    length, width, height = size
 
     # local box (centered at origin)
-    x = l / 2
-    y = w / 2
-    z = h / 2
+    x = length / 2
+    y = width / 2
+    z = height / 2
 
-    corners = np.array([
-        [-x, -y, -z],
-        [ x, -y, -z],
-        [ x,  y, -z],
-        [-x,  y, -z],
-        [-x, -y,  z],
-        [ x, -y,  z],
-        [ x,  y,  z],
-        [-x,  y,  z],
-    ])
+    corners = np.array(
+        [
+            [-x, -y, -z],
+            [x, -y, -z],
+            [x, y, -z],
+            [-x, y, -z],
+            [-x, -y, z],
+            [x, -y, z],
+            [x, y, z],
+            [-x, y, z],
+        ]
+    )
 
-    # rotation 
-    R = np.array([
-        [np.cos(yaw), -np.sin(yaw), 0],
-        [np.sin(yaw),  np.cos(yaw), 0],
-        [0, 0, 1]
-    ])
+    # rotation
+    R = np.array(
+        [[np.cos(yaw), -np.sin(yaw), 0], [np.sin(yaw), np.cos(yaw), 0], [0, 0, 1]]
+    )
 
     corners = corners @ R.T
-
     corners = corners + center
 
     return corners
 
-def box_to_param(box):
+
+def box_to_param(box: Array) -> tuple[Array, Array, float]:
     """
     box: (8,3)
     returns: center, size, yaw
@@ -42,81 +46,74 @@ def box_to_param(box):
     # Center
     center = box.mean(axis=0)
 
-    # PCA (orientation)
-    pts_xy = box[:, :2]   # only XY for yaw
-
+    # PCA
+    pts_xy = box[:, :2]  # only XY for yaw
     cov = np.cov(pts_xy.T)
     eigvals, eigvecs = np.linalg.eig(cov)
-
-    # main axis = largest eigenvector
     main_axis = eigvecs[:, np.argmax(eigvals)]
-
     yaw = np.arctan2(main_axis[1], main_axis[0])
 
-    # Size (project onto axes)
-    # rotate box to align with axes
-    R = np.array([
-        [np.cos(-yaw), -np.sin(-yaw), 0],
-        [np.sin(-yaw),  np.cos(-yaw), 0],
-        [0, 0, 1]
-    ])
+    # Align box to exact size
+    R = np.array(
+        [
+            [np.cos(-yaw), -np.sin(-yaw), 0.0],
+            [np.sin(-yaw), np.cos(-yaw), 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
 
     aligned = (box - center) @ R.T
-
     min_vals = aligned.min(axis=0)
     max_vals = aligned.max(axis=0)
-
     size = max_vals - min_vals
 
     return center, size, yaw
 
 
-def extract_objects(sample):
-    pc = sample["point_cloud"]      # (3, H, W)
-    masks = sample["mask"]          # (N, H, W)
-    boxes = sample["bbox3d"]        # (N, 8, 3)
+def extract_objects(sample: dict[str | Any]) -> list[dict[str, Array | float]]:
+    pc = sample["point_cloud"]  # (3, H, W)
+    masks = sample["mask"]  # (N, H, W)
+    boxes = sample["bbox3d"]  # (N, 8, 3)
 
     objects = []
     for i in range(len(masks)):
         mask = masks[i] > 0
+        points = pc[:, mask].T  # (Ni, 3)
 
-        # Extract points
-        points = pc[:, mask].T   # (Ni, 3)
-
-        if len(points) < 20:   # skip noisy objects
+        if len(points) < 20:
             continue
 
-        # Filter points
+        # Basic z filter
         points = points[points[:, 2] > 0]
-
         if len(points) == 0:
             continue
 
         z = points[:, 2]
         z_min, z_max = np.percentile(z, [1, 99])
         points = points[(z > z_min) & (z < z_max)]
-
         if len(points) == 0:
             continue
 
-        # Convert box → params (PCA)
+        # Convert box to params
         box = boxes[i]
         center, size, yaw = box_to_param(box)
 
-        # Store
         obj = {
-            "points": points,     # (Ni,3)
+            "points": points,  # (Ni,3)
             "center": center,
             "size": size,
-            "yaw": yaw
+            "yaw": yaw,
         }
 
         objects.append(obj)
 
     return objects
 
-# Centering, Scale, Point count 
-def preprocess_object(obj, num_points=5120):
+
+# Centering, Scale, Point count
+def preprocess_object(
+    obj: dict[str, Array | float], num_points: int = 5120
+) -> dict[str, Array | float]:
     points = obj["points"]
 
     # center
@@ -127,7 +124,7 @@ def preprocess_object(obj, num_points=5120):
     scale = np.max(np.linalg.norm(points, axis=1))
     points = points / (scale + 1e-6)
 
-    # sample
+    # Resample
     N = len(points)
     if N >= num_points:
         idx = np.random.choice(N, num_points, replace=False)
@@ -136,7 +133,6 @@ def preprocess_object(obj, num_points=5120):
 
     points = points[idx]
 
-    # adjust labels
     center = (obj["center"] - pc_center) / scale
     size = obj["size"] / scale
     yaw = obj["yaw"]
@@ -147,8 +143,9 @@ def preprocess_object(obj, num_points=5120):
         "size": size,
         "yaw": yaw,
         "pc_center": pc_center,
-        "scale": scale
+        "scale": scale,
     }
+
 
 def denormalize_prediction(pred_center, pred_size, obj):
     pc_center = obj["pc_center"]

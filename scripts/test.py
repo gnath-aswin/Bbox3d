@@ -5,10 +5,16 @@ from tqdm import tqdm
 from src.model import PointNetBBox
 from src.metrics.iou3d import compute_iou_3d
 from src.loss import BBoxLoss
-from src.visualize import Visualizer 
+from src.visualize import Visualizer
 from src.data.dataset import Custom3DDataset
 from src.data.splits import load_split
-from src.data.preprocess import (extract_objects, preprocess_object, denormalize_prediction, param_to_box)
+from src.data.preprocess import (
+    extract_objects,
+    preprocess_object,
+    denormalize_prediction,
+    param_to_box,
+)
+
 
 class Tester:
     def __init__(self, model, dataset, device="cpu"):
@@ -31,28 +37,42 @@ class Tester:
 
         with torch.no_grad():
             for sample in tqdm(self.dataset):
-
-                objects = extract_objects(sample) 
+                objects = extract_objects(sample)
 
                 pred_boxes_scene = []
                 gt_boxes_scene = []
 
                 for obj in objects:
                     processed = preprocess_object(obj)
-                    points = torch.tensor(processed["points"], dtype=torch.float32).unsqueeze(0).to(self.device)
-                    gt_center = torch.tensor(processed["center"], dtype=torch.float32).unsqueeze(0).to(self.device)
-                    gt_size = torch.tensor(processed["size"], dtype=torch.float32).unsqueeze(0).to(self.device)
-                    gt_yaw = torch.tensor(processed["yaw"], dtype=torch.float32).unsqueeze(0).to(self.device)
+                    points = (
+                        torch.tensor(processed["points"], dtype=torch.float32)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
+                    gt_center = (
+                        torch.tensor(processed["center"], dtype=torch.float32)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
+                    gt_size = (
+                        torch.tensor(processed["size"], dtype=torch.float32)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
+                    gt_yaw = (
+                        torch.tensor(processed["yaw"], dtype=torch.float32)
+                        .unsqueeze(0)
+                        .to(self.device)
+                    )
 
                     # Predict
                     pred_center, pred_size, pred_yaw = self.model(points)
 
-                    #Loss 
+                    # Loss
                     loss_dict = self.loss_fn(
-                        (pred_center, pred_size, pred_yaw),
-                        (gt_center, gt_size, gt_yaw)
+                        (pred_center, pred_size, pred_yaw), (gt_center, gt_size, gt_yaw)
                     )
-                    
+
                     pred_center = pred_center.cpu().numpy()[0]
                     pred_size = pred_size.cpu().numpy()[0]
                     pred_yaw = pred_yaw.cpu().numpy()[0]
@@ -92,8 +112,13 @@ class Tester:
                         save_path = f"outputs/vis/scene_{vis_count}.png"
                     else:
                         save_path = None
-                    vis.show_scene_predictions(gt_boxes=gt_boxes_scene, pred_boxes=pred_boxes_scene, show=visualize, save_path=save_path)
-        
+                    vis.show_scene_predictions(
+                        gt_boxes=gt_boxes_scene,
+                        pred_boxes=pred_boxes_scene,
+                        show=visualize,
+                        save_path=save_path,
+                    )
+
                     vis_count += 1
 
             # Final Results
@@ -105,14 +130,14 @@ class Tester:
             print(f"Yaw Loss           : {total_yaw_loss / count:.4f}")
 
 
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_path", type=str, required=True)
     parser.add_argument("--checkpoint", type=str, required=True)
     parser.add_argument("--show_vis", action="store_true")
-    parser.add_argument("--save_vis", action="store_true")  
+    parser.add_argument("--save_vis", action="store_true")
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
@@ -121,7 +146,7 @@ def main():
     dataset = Custom3DDataset(data_path)
     test_sample = load_split(dataset)[2]
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = PointNetBBox().to(device)
     checkpoint = torch.load(args.checkpoint, map_location=device)
@@ -130,10 +155,11 @@ def main():
     tester = Tester(model, test_sample, device=device)
 
     tester.test(
-        visualize=args.show_vis,   # turn on for debugging
+        visualize=args.show_vis,  # turn on for debugging
         max_vis=2,
-        save_vis=args.save_vis
+        save_vis=args.save_vis,
     )
 
-if __name__ =="__main__":
+
+if __name__ == "__main__":
     main()

@@ -11,7 +11,7 @@ from src.data.dataset import Custom3DDataset, ObjectDataset
 from src.data.preprocess import extract_objects, preprocess_object
 from src.data.splits import load_split
 from src.loss import BBoxLoss
-from src.utils.config import load_config,sample_from_config
+from src.utils.config import load_config, sample_from_config
 from src.logging.mlflow_logger import MLflowLogger
 
 
@@ -23,26 +23,21 @@ def build_dataset(scene_split):
             objects.append(preprocess_object(obj))
     return ObjectDataset(objects)
 
+
 # Datset builders
 def build_loaders(train_dataset, val_dataset, batch_size, num_workers=2):
     train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers
+        train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
     )
 
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False
-    )
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     return train_loader, val_loader
 
-# Build Trainer 
+
+# Build Trainer
 def build_trainer(params, train_loader, val_loader, trial_number, trial):
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     model = PointNetBBox().to(device)
 
@@ -50,7 +45,7 @@ def build_trainer(params, train_loader, val_loader, trial_number, trial):
         w_center=params["w_center"],
         w_size=params["w_size"],
         w_yaw=params["w_yaw"],
-        w_diou=params["w_diou"]   
+        w_diou=params["w_diou"],
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
@@ -65,42 +60,36 @@ def build_trainer(params, train_loader, val_loader, trial_number, trial):
         device=device,
         val_loader=val_loader,
         loss_fn=loss_fn,
-        trial=trial
+        trial=trial,
     )
 
     return trainer
 
+
 # Objective function (Optuna)
 def objective(trial, config, train_dataset, val_dataset, experiment_id):
     with mlflow.start_run(nested=True, experiment_id=experiment_id):
-
         # Sample params
         params = sample_from_config(trial, config["search_space"])
 
         # Fill defaults
         params["lr"] = params.get("lr", config["training"]["lr"])
-        params["batch_size"] = params.get("batch_size", config["training"]["batch_size"])
+        params["batch_size"] = params.get(
+            "batch_size", config["training"]["batch_size"]
+        )
 
         mlflow.log_params(params)
         mlflow.log_param("trial_number", trial.number)
 
         # Build loaders
         train_loader, val_loader = build_loaders(
-            train_dataset,
-            val_dataset,
-            params["batch_size"]
+            train_dataset, val_dataset, params["batch_size"]
         )
 
         # Build trainer
-        trainer = build_trainer(
-            params,
-            train_loader,
-            val_loader,
-            trial.number,
-            trial
-        )
+        trainer = build_trainer(params, train_loader, val_loader, trial.number, trial)
 
-        # Train           
+        # Train
         try:
             trainer.train(epochs=config["training"]["epochs"])
         except optuna.exceptions.TrialPruned:
@@ -112,19 +101,22 @@ def objective(trial, config, train_dataset, val_dataset, experiment_id):
 
         # Objective
         w_loss = config["tune_objective"]["w_loss"]
-        w_iou  = config["tune_objective"]["w_iou"]
+        w_iou = config["tune_objective"]["w_iou"]
         val_score = w_loss * val_loss - w_iou * val_iou
 
         # Log
-        mlflow.log_metrics({
-            "val_loss": val_loss,
-            "val_iou": val_iou,
-            "val_score": val_score,
-        })
+        mlflow.log_metrics(
+            {
+                "val_loss": val_loss,
+                "val_iou": val_iou,
+                "val_score": val_score,
+            }
+        )
 
         trial.set_user_attr("val_iou", val_iou)
 
         return val_score
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -141,26 +133,20 @@ def main():
     train_scene, val_scene, _ = load_split(scene_dataset)
 
     train_dataset = build_dataset(train_scene)
-    val_dataset   = build_dataset(val_scene)
+    val_dataset = build_dataset(val_scene)
 
     with mlflow.start_run(run_name="Tune test"):
         study = optuna.create_study(
-                direction="minimize",
-                pruner=optuna.pruners.MedianPruner(
-                    n_startup_trials=5,
-                    n_warmup_steps=3,
-                    interval_steps=1
-                )
-            )
+            direction="minimize",
+            pruner=optuna.pruners.MedianPruner(
+                n_startup_trials=5, n_warmup_steps=3, interval_steps=1
+            ),
+        )
         study.optimize(
             lambda trial: objective(
-                trial,
-                config,
-                train_dataset,
-                val_dataset,
-                experiment_id
+                trial, config, train_dataset, val_dataset, experiment_id
             ),
-            n_trials=config["tuning"]["n_trials"]
+            n_trials=config["tuning"]["n_trials"],
         )
         best_params = study.best_params
 
@@ -172,6 +158,7 @@ def main():
             json.dump(best_params, f, indent=4)
 
         print("Best params saved!")
+
 
 if __name__ == "__main__":
     main()

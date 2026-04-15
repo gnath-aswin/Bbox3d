@@ -1,14 +1,16 @@
 import mlflow
 import matplotlib.pyplot as plt
 
-run_id = "7ed9870695ea4e4191c375ffde28e78c"
+run_id = "87cbf0afe757450f81110575e8c7346d"
 client = mlflow.tracking.MlflowClient()
+
 
 def get_metric(metric_name):
     history = client.get_metric_history(run_id, metric_name)
     steps = [m.step for m in history]
     values = [m.value for m in history]
     return steps, values
+
 
 # Load metrics
 train_steps, train_loss = get_metric("train_loss")

@@ -2,8 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class BBoxLoss(nn.Module):
-    def __init__(self, w_center=1.0, w_size=1.0, w_yaw=1.0,  w_diou=1.0):
+    def __init__(self, w_center=1.0, w_size=1.0, w_yaw=1.0, w_diou=1.0):
         super().__init__()
         self.w_center = w_center
         self.w_size = w_size
@@ -24,27 +25,27 @@ class BBoxLoss(nn.Module):
         # )
 
         loss_yaw = 1 - torch.cos(pred_yaw - gt_yaw)
-        loss_yaw = loss_yaw.mean()  
+        loss_yaw = loss_yaw.mean()
 
         # DIoU loss
         diou = self.compute_diou_3d(pred_center, pred_size, gt_center, gt_size)
         loss_diou = 1 - diou.mean()
 
         total_loss = (
-            self.w_center * loss_center +
-            self.w_size * loss_size +
-            self.w_yaw * loss_yaw +
-            self.w_diou * loss_diou
+            self.w_center * loss_center
+            + self.w_size * loss_size
+            + self.w_yaw * loss_yaw
+            + self.w_diou * loss_diou
         )
 
         return {
             "total": total_loss,
             "center": loss_center,
             "size": loss_size,
-            "yaw": loss_yaw, 
-            "diou": loss_diou
+            "yaw": loss_yaw,
+            "diou": loss_diou,
         }
-    
+
     def compute_diou_3d(self, center_pred, size_pred, center_gt, size_gt):
         # Convert to corners
         min_p = center_pred - size_pred / 2

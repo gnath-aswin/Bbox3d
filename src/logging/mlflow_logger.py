@@ -1,6 +1,7 @@
 import mlflow
 from .base_logger import BaseLogger
 
+
 class MLflowLogger(BaseLogger):
     def __init__(self, experiment_name="default"):
         mlflow.set_experiment(experiment_name)
@@ -8,7 +9,7 @@ class MLflowLogger(BaseLogger):
     def start(self):
         if mlflow.active_run() is None:
             self.run = mlflow.start_run()
-       
+
     def end(self):
         mlflow.end_run()
 

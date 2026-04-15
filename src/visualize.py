@@ -21,12 +21,12 @@ class Visualizer:
         # Normalization
         self._compute_normalization()
 
-    # Preprocessing 
+    # Preprocessing
     def _prepare_points(self):
         points = self.pc.reshape(3, -1).T
 
         # Remove invalid depth
-        points = points[points[:, 2] > 0] 
+        points = points[points[:, 2] > 0]
 
         # Remove depth outliers
         z = points[:, 2]
@@ -35,12 +35,11 @@ class Visualizer:
 
         return points
 
-
     # Projection: World frame(not sure) to image frame
     def _project(self, points):
         X = points[:, 0]
         Y = points[:, 1]
-        Z = points[:, 2] + 1e-6 
+        Z = points[:, 2] + 1e-6
 
         u = X / Z
         v = Y / Z
@@ -62,25 +61,42 @@ class Visualizer:
         z = (z - self.z_min) / (self.z_max - self.z_min + 1e-6)
         return np.clip(z, 0, 1)
 
-    def _draw_box(self, box, ax, color='r'):
+    def _draw_box(self, box, ax, color="r"):
         box = np.asarray(box)
         if box.shape != (8, 3):
             raise ValueError(f"Box must be (8,3), got {box.shape}")
-        
+
         u, v = self._project(box)
         u, v = self._normalize_uv(u, v)
 
         edges = [
-            (0,1),(1,2),(2,3),(3,0),
-            (4,5),(5,6),(6,7),(7,4),
-            (0,4),(1,5),(2,6),(3,7)
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
         ]
 
         for i, j in edges:
             ax.plot([u[i], u[j]], [v[i], v[j]], color=color, linewidth=2)
 
     # Visualization - Scene level
-    def show(self, show_pc=True, show_boxes=True, show_mask=False, mask_idx=0, box_color="r", ax=None):
+    def show(
+        self,
+        show_pc=True,
+        show_boxes=True,
+        show_mask=False,
+        mask_idx=0,
+        box_color="r",
+        ax=None,
+    ):
         if ax is None:
             plt.figure(figsize=(8, 6))
             ax = plt.gca()
@@ -97,33 +113,16 @@ class Visualizer:
             u, v = self._normalize_uv(self.u_all, self.v_all)
             z_norm = self._normalize_z(self.z_all)
 
-            sc = ax.scatter(
-                u, v,
-                c=z_norm,        
-                cmap="jet",
-                alpha=0.3
-            )
+            sc = ax.scatter(u, v, c=z_norm, cmap="jet", alpha=0.3)
 
             plt.colorbar(sc, ax=ax, label="Depth (Z)")
 
         # Bounding boxes
         if show_boxes:
             for box in self.boxes:
-                u, v = self._project(box)
-                u, v = self._normalize_uv(u, v)
-
-                edges = [
-                    (0,1),(1,2),(2,3),(3,0),
-                    (4,5),(5,6),(6,7),(7,4),
-                    (0,4),(1,5),(2,6),(3,7)
-                ]
-
-                for i, j in edges:
-                    ax.plot([u[i], u[j]], [v[i], v[j]], color=box_color, linewidth=2)
-
+               self._draw_box(box)
         ax.set_title("Visualization")
         ax.axis("off")
-        
 
     # Single Object Visualization
     def show_object(self, mask_idx=None, box_idx=None, obj_points=None, ax=None):
@@ -133,7 +132,7 @@ class Visualizer:
 
         ax.imshow(self.img)
 
-        # Mask 
+        # Mask
         if mask_idx is not None:
             mask = self.mask[mask_idx] > 0
             ax.imshow(mask, alpha=0.5, cmap="jet")
@@ -153,23 +152,12 @@ class Visualizer:
                 u, v = self._project(points)
                 u, v = self._normalize_uv(u, v)
 
-                ax.scatter(u, v, s=2, c='cyan', alpha=0.7)
+                ax.scatter(u, v, s=2, c="cyan", alpha=0.7)
 
         # Bounding box
         if box_idx is not None:
             box = self.boxes[box_idx]
-
-            u, v = self._project(box)
-            u, v = self._normalize_uv(u, v)
-
-            edges = [
-                (0,1),(1,2),(2,3),(3,0),
-                (4,5),(5,6),(6,7),(7,4),
-                (0,4),(1,5),(2,6),(3,7)
-            ]
-
-            for i, j in edges:
-                ax.plot([u[i], u[j]], [v[i], v[j]], 'r', linewidth=2)
+            self._draw_box(box)
 
         # Title
         title = "Object View"
@@ -190,7 +178,7 @@ class Visualizer:
         show_mask=False,
         show=False,
         save_path=None,
-        ax=None
+        ax=None,
     ):
         """
         Visualize full scene with GT and predicted boxes
@@ -211,35 +199,30 @@ class Visualizer:
             u, v = self._normalize_uv(self.u_all, self.v_all)
             z_norm = self._normalize_z(self.z_all)
 
-            sc = ax.scatter(
-                u, v,
-                c=z_norm,
-                cmap="jet",
-                alpha=0.2
-            )
+            sc = ax.scatter(u, v, c=z_norm, cmap="jet", alpha=0.2)
             plt.colorbar(sc, ax=ax, label="Depth")
 
         # GT
         if gt_boxes is not None:
             for box in gt_boxes:
-                self._draw_box(box, ax, color='g')
+                self._draw_box(box, ax, color="g")
 
         # Prediction
         if pred_boxes is not None:
             for box in pred_boxes:
-                self._draw_box(box, ax, color='r')
+                self._draw_box(box, ax, color="r")
 
-        # Legend 
-        ax.plot([], [], color='g', label='GT')
-        ax.plot([], [], color='r', label='Prediction')
+        # Legend
+        ax.plot([], [], color="g", label="GT")
+        ax.plot([], [], color="r", label="Prediction")
         ax.legend()
 
         ax.set_title("Scene: GT vs Prediction")
         ax.axis("off")
-        
+
         if save_path is not None:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            plt.savefig(save_path, bbox_inches='tight', dpi=150)
+            plt.savefig(save_path, bbox_inches="tight", dpi=150)
 
         if show:
             plt.show()

@@ -1,11 +1,22 @@
 import torch
 import os
-import optuna 
+import optuna
 from src.loss import BBoxLoss
 from src.metrics.iou3d import compute_iou_3d
 
+
 class Trainer:
-    def __init__(self, model, optimizer, train_loader, loss_fn=None, logger=None, device="cpu", val_loader=None, trial=None):
+    def __init__(
+        self,
+        model,
+        optimizer,
+        train_loader,
+        loss_fn=None,
+        logger=None,
+        device="cpu",
+        val_loader=None,
+        trial=None,
+    ):
         self.model = model
         self.loss_fn = loss_fn if loss_fn is not None else BBoxLoss()
         self.optimizer = optimizer
@@ -14,7 +25,9 @@ class Trainer:
         self.logger = logger
         self.device = device
         self.trial = trial
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', patience=5, factor=0.5)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, mode="min", patience=5, factor=0.5
+        )
 
         self.best_loss = float("inf")
         self.last_loss = None
@@ -22,7 +35,7 @@ class Trainer:
 
     def train_one_epoch(self):
         self.model.train()
-    
+
         total_loss = 0
         total_center = 0
         total_size = 0
@@ -37,8 +50,8 @@ class Trainer:
 
             pred = self.model(points)
             loss_dict = self.loss_fn(pred, (center, size, yaw))
-            loss = loss_dict["total"] 
-        
+            loss = loss_dict["total"]
+
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -47,25 +60,27 @@ class Trainer:
             total_center += loss_dict["center"].item()
             total_size += loss_dict["size"].item()
             total_yaw += loss_dict["yaw"].item()
-            total_diou += loss_dict["diou"].item()    
+            total_diou += loss_dict["diou"].item()
 
         return {
             "total": total_loss / len(self.loader),
             "center": total_center / len(self.loader),
             "size": total_size / len(self.loader),
             "yaw": total_yaw / len(self.loader),
-            "diou": total_diou / len(self.loader)
+            "diou": total_diou / len(self.loader),
         }
 
     def train(self, epochs):
         if self.logger:
             self.logger.start()
 
-            self.logger.log_params({
-                "batch_size": self.loader.batch_size,
-                "learning_rate": self.optimizer.param_groups[0]["lr"],
-                "model": self.model.__class__.__name__,
-                })
+            self.logger.log_params(
+                {
+                    "batch_size": self.loader.batch_size,
+                    "learning_rate": self.optimizer.param_groups[0]["lr"],
+                    "model": self.model.__class__.__name__,
+                }
+            )
         try:
             for epoch in range(epochs):
                 train_losses = self.train_one_epoch()
@@ -75,10 +90,10 @@ class Trainer:
                     val_loss, val_iou = self.validate()
                 else:
                     val_loss, val_iou = None, None
-                
+
                 if val_loss is not None and val_loss < self.best_loss:
                     self.best_loss = val_loss
-                
+
                 # Prune the hyperparameter study
                 if self.trial is not None:
                     val_score = val_loss - 2.0 * val_iou
@@ -94,14 +109,11 @@ class Trainer:
                         f"(C={train_losses['center']:.3f}, "
                         f"S={train_losses['size']:.3f}, "
                         f"Y={train_losses['yaw']:.3f}),"
-                        f"DIoU={train_losses["diou"]:.3f}) "
+                        f"DIoU={train_losses['diou']:.3f}) "
                         f"| Val={val_loss:.4f}, IoU={val_iou:.4f}"
                     )
                 else:
-                    print(
-                        f"Epoch {epoch}: "
-                        f"Train={train_losses['total']:.4f}"
-                    )
+                    print(f"Epoch {epoch}: Train={train_losses['total']:.4f}")
 
                 # Log metrics
                 if self.logger:
@@ -121,7 +133,9 @@ class Trainer:
                 if val_loss is not None:
                     if val_iou > self.best_iou:
                         self.best_iou = val_iou
-                        path = self.save_checkpoint("outputs/models/best_model.pth", epoch, val_loss)
+                        path = self.save_checkpoint(
+                            "outputs/models/best_model.pth", epoch, val_loss
+                        )
 
                         if self.logger:
                             self.logger.log_artifact(path)
@@ -131,7 +145,7 @@ class Trainer:
                 self.logger.end()
 
         return self.best_loss
-    
+
     def validate(self):
         self.model.eval()
 
@@ -152,7 +166,7 @@ class Trainer:
 
                 total_loss += loss.item()
 
-                # IoU 
+                # IoU
                 pred_center, pred_size, _ = pred
 
                 for i in range(points.shape[0]):
@@ -160,7 +174,7 @@ class Trainer:
                         pred_center[i].cpu().numpy(),
                         pred_size[i].cpu().numpy(),
                         center[i].cpu().numpy(),
-                        size[i].cpu().numpy()
+                        size[i].cpu().numpy(),
                     )
                     total_iou += iou
                     count += 1
@@ -173,11 +187,14 @@ class Trainer:
     def save_checkpoint(self, path, epoch, loss):
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
-        torch.save({
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "epoch": epoch,
-            "loss": loss
-        }, path)
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "epoch": epoch,
+                "loss": loss,
+            },
+            path,
+        )
 
         return path

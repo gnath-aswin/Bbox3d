@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import argparse 
+import argparse
 from torch.utils.data import DataLoader, Subset, random_split
 
 from src.logging.mlflow_logger import MLflowLogger
@@ -12,18 +12,29 @@ from src.data.preprocess import extract_objects, preprocess_object
 from src.data.splits import load_split
 from src.utils.config import load_best_params
 
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="3D Bounding Box Training")
 
-    parser.add_argument("--data_path", type=str, default="/media/void/Crucial X8/dl_challenge/dl_challenge", help="Path to dataset root")
-    parser.add_argument("--name", type=str, default="baseline_run",help="MLflow experiment name")
-    parser.add_argument("--use_tuned", action="store_true", help="Use tuned hyperparameters")
+    parser.add_argument(
+        "--data_path",
+        type=str,
+        default="/media/void/Crucial X8/dl_challenge/dl_challenge",
+        help="Path to dataset root",
+    )
+    parser.add_argument(
+        "--name", type=str, default="baseline_run", help="MLflow experiment name"
+    )
+    parser.add_argument(
+        "--use_tuned", action="store_true", help="Use tuned hyperparameters"
+    )
     parser.add_argument("--epochs", type=int, default=100)
     # Override params
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--batch_size", type=int, default=None)
 
     return parser.parse_args()
+
 
 # Dataset builder
 def _build_dataset(scene_split):
@@ -33,10 +44,11 @@ def _build_dataset(scene_split):
             objects.append(preprocess_object(obj))
     return ObjectDataset(objects)
 
+
 def main():
     args = _parse_args()
 
-    # Data 
+    # Data
     data_path = args.data_path
     scene_dataset = Custom3DDataset(data_path)
     train_scene, val_scene, _ = load_split(scene_dataset)
@@ -44,19 +56,19 @@ def main():
     val_dataset = _build_dataset(val_scene)
 
     # Device
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # Training parameter
     default_params = {
-            "lr": 1e-3,
-            "batch_size": 32,
-            "w_center": 1.0,
-            "w_size": 1.0,
-            "w_yaw": 1.0
-        }
+        "lr": 1e-3,
+        "batch_size": 32,
+        "w_center": 1.0,
+        "w_size": 1.0,
+        "w_yaw": 1.0,
+    }
     if args.use_tuned:
         try:
-            tuned = load_best_params(path="configs/best_params.json")
+            tuned = load_best_params(path="configs/best_params_diou.json")
             default_params.update(tuned)
         except Exception as e:
             print("Failed to load tuned params:", e)
@@ -67,24 +79,17 @@ def main():
         default_params["batch_size"] = args.batch_size
     params = default_params
 
-    # Loader 
+    # Loader
     train_loader = DataLoader(
-        train_dataset,
-        batch_size=params["batch_size"],
-        shuffle=True,
-        num_workers=2
+        train_dataset, batch_size=params["batch_size"], shuffle=True, num_workers=2
     )
-    val_loader = DataLoader(val_dataset, 
-            batch_size=params["batch_size"], 
-            shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=params["batch_size"], shuffle=False)
 
     # Model
-    model = PointNetBBox().to(device)   
+    model = PointNetBBox().to(device)
     loss_fn = BBoxLoss(
-            w_center=params["w_center"],
-            w_size=params["w_size"],
-            w_yaw=params["w_yaw"]
-        )
+        w_center=params["w_center"], w_size=params["w_size"], w_yaw=params["w_yaw"]
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=params["lr"])
 
     # Log
@@ -104,10 +109,11 @@ def main():
         loss_fn=loss_fn,
         logger=logger,
         device=device,
-        val_loader=val_loader   
+        val_loader=val_loader,
     )
     print("\n===== TRAINING =====")
     trainer.train(args.epochs)
+
 
 if __name__ == "__main__":
     main()

@@ -14,7 +14,7 @@ class PointNetBBox(nn.Module):
             nn.Linear(64, 128),
             nn.ReLU(),
             nn.Linear(128, 256),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
         # Global feature → prediction
@@ -23,7 +23,7 @@ class PointNetBBox(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(128, 7)   # 3 center + 3 size + 1 yaw
+            nn.Linear(128, 7),  # 3 center + 3 size + 1 yaw
         )
 
     def forward(self, x):
@@ -32,20 +32,20 @@ class PointNetBBox(nn.Module):
         """
 
         # Apply MLP per point
-        x = self.mlp1(x)   # (B, N, 256)
+        x = self.mlp1(x)  # (B, N, 256)
 
-        # Symmetric function 
-        x = torch.max(x, dim=1)[0]   # (B, 256)
+        # Symmetric function
+        x = torch.max(x, dim=1)[0]  # (B, 256)
 
         # Final prediction
-        x = self.fc(x)   # (B, 7)
+        x = self.fc(x)  # (B, 7)
 
         center = x[:, 0:3]
-        size = torch.exp(x[:, 3:6]) # Ensures strictly positive dimensions
+        size = torch.exp(x[:, 3:6])  # Ensures strictly positive dimensions
         yaw = x[:, 6]
 
         return center, size, yaw
-    
+
     # // Better configurable loss needed
     def bbox_loss(self, pred, target):
         pred_center, pred_size, pred_yaw = pred
