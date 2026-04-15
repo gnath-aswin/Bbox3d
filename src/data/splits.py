@@ -39,3 +39,22 @@ def load_split(
     test = Subset(dataset, data["test_idx"])
 
     return train, val, test
+
+
+
+def get_or_create_split(
+    dataset: Dataset, path: str | Path = "data/splits.npz"
+) -> tuple[Subset, Subset, Subset]:
+    split_path = Path(path)
+
+    if split_path.exists():
+        print("Loading existing split...")
+        return load_split(dataset, split_path)
+
+    print("Creating new split...")
+    train, val, test = split_dataset(dataset)
+
+    split_path.parent.mkdir(parents=True, exist_ok=True)
+    save_split(train, val, test, split_path)
+
+    return train, val, test

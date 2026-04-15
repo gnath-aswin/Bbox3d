@@ -9,7 +9,7 @@ from src.model import PointNetBBox
 from src.loss import BBoxLoss
 from src.data.dataset import Custom3DDataset, ObjectDataset
 from src.data.preprocess import extract_objects, preprocess_object
-from src.data.splits import load_split
+from src.data.splits import get_or_create_split
 from src.utils.config import load_best_params
 
 
@@ -19,7 +19,7 @@ def _parse_args():
     parser.add_argument(
         "--data_path",
         type=str,
-        default="/media/void/Crucial X8/dl_challenge/dl_challenge",
+        default="data",
         help="Path to dataset root",
     )
     parser.add_argument(
@@ -51,7 +51,7 @@ def main():
     # Data
     data_path = args.data_path
     scene_dataset = Custom3DDataset(data_path)
-    train_scene, val_scene, _ = load_split(scene_dataset)
+    train_scene, val_scene, _ = get_or_create_split(scene_dataset)
     train_dataset = _build_dataset(train_scene)
     val_dataset = _build_dataset(val_scene)
 
